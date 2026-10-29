@@ -1,0 +1,56 @@
+name: cmake-ctest
+
+on:
+  push:
+    branches:
+      - freebind-keepnick
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - gcc
+          - clang
+    env:
+      CC: ${{ matrix.compiler == 'gcc' && 'gcc' || 'clang' }}
+      CXX: ${{ matrix.compiler == 'gcc' && 'g++' || 'clang++' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ clang make cmake libssl-dev libicu-dev pkg-config
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWANT_PERL=NO \
+            -DWANT_PYTHON=NO \
+            -DWANT_SWIG=NO \
+            -DWANT_TCL=NO \
+            -DWANT_CYRUS=NO \
+            -DWANT_ARGON=NO
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Unit tests
+        run: |
+          cmake --build build --target unittest_bin --parallel
+          ctest --test-dir build --output-on-failure
+
+      - name: Smoke test
+        run: ./build/znc --version

@@ -176,6 +176,16 @@ Perl modules are loaded through the global module
 Python modules are loaded through the global module
 [ModPython](https://wiki.znc.in/Modpython).
 
+## Fork additions
+
+This fork adds one feature on top of upstream ZNC:
+
+- **keepnick** — a global module that holds IRC nicks on networks *without*
+  NickServ (IRCnet-style) via synthetic IRC connections, and hands them over
+  when the real user comes online. On Linux its sockets can use
+  `IP_FREEBIND`/`IPV6_FREEBIND` to bind to unassigned vhost addresses.
+  See [docs/keepnick.md](docs/keepnick.md).
+
 ## Further information
 
 Please visit https://znc.in/ or #znc on Libera.Chat if you still have questions:

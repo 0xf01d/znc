@@ -405,6 +405,7 @@ endif()
 configure_file("include/znc/zncconfig.h.cmake.in" "include/znc/zncconfig.h")
 configure_file("test/integration/znctestconfig.h.cmake.in"
 	"test/integration/znctestconfig.h")
+enable_testing()
 add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(modules)

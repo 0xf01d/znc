@@ -61,12 +61,14 @@ add_executable(unittest_bin EXCLUDE_FROM_ALL
 	"ThreadTest.cpp" "NickTest.cpp" "ClientTest.cpp" "NetworkTest.cpp"
 	"MessageTest.cpp" "ModulesTest.cpp" "IRCSockTest.cpp" "QueryTest.cpp"
 	"StringTest.cpp" "ConfigTest.cpp" "BufferTest.cpp" "UtilsTest.cpp"
-	"UserTest.cpp" "DebugTest.cpp" "HTTPSockTest.cpp")
+	"UserTest.cpp" "DebugTest.cpp" "HTTPSockTest.cpp" "KeepNickTest.cpp")
 target_link_libraries(unittest_bin PRIVATE znclib)
 target_include_directories(unittest_bin PRIVATE
 	"${GTEST_ROOT}" "${GTEST_ROOT}/include"
-	"${GMOCK_ROOT}" "${GMOCK_ROOT}/include")
+	"${GMOCK_ROOT}" "${GMOCK_ROOT}/include"
+	"${PROJECT_SOURCE_DIR}/modules")
 add_custom_target(unittest COMMAND unittest_bin)
+add_test(NAME unittest COMMAND unittest_bin)
 
 # Use different compiler flags, because Qt fails with sanitizers,
 # and we don't need sanitizers to test the test itself anyway.
