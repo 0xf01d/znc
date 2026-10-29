@@ -18,6 +18,10 @@
 #define ZNC_MOD_KEEPNICK_UTILS_H
 
 #include <znc/ZNCString.h>
+#include <fstream>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <cstring>
 
 #include <algorithm>
 #include <utility>
@@ -139,6 +143,40 @@ inline std::vector<CString> ParseNickList(const CString& sList) {
     VCString vsTokens;
     sList.Split(" ", vsTokens, false);
     return std::vector<CString>(vsTokens.begin(), vsTokens.end());
+}
+
+// Random address from an IPv6 pool. sPool is "<prefix>/<len>" with len <= 64
+// (a /48 like "2001:db8:aa00::/48" is typical). The returned address keeps
+// the given prefix bits and randomizes everything up to the 64-bit interface
+// boundary; the low 64 bits (interface ID) are drawn from /dev/urandom, so
+// every clone presents a different source address from the same pool.
+// Returns "" on any parse failure.
+inline CString RandomV6FromPool(const CString& sPool) {
+    CString sPrefix = sPool.Token(0, false, "/");
+    unsigned int uLen = sPool.Token(1, false, "/").ToUInt();
+    if (uLen == 0 || uLen > 64) return "";
+    in6_addr aAddr;
+    if (inet_pton(AF_INET6, sPrefix.c_str(), &aAddr) != 1) return "";
+
+    unsigned char aRand[8];
+    std::ifstream fRand("/dev/urandom", std::ios::binary);
+    if (!fRand.read((char*)aRand, sizeof(aRand))) return "";
+
+    unsigned char aFull[16];
+    memcpy(aFull, aAddr.s6_addr, 16);
+    for (unsigned int i = 0; i < 8; i++) {
+        aFull[8 + i] = aRand[i];  // interface ID: fully random
+    }
+    for (unsigned int i = 0; i < 8; i++) {  // subnet bits between prefix and /64
+        unsigned int uBitLo = uLen + i * 8;
+        if (uBitLo >= 64) break;
+        unsigned int uKeepMask =
+            (uBitLo + 8 <= 64) ? 0xFF : (0xFFu << (64 - uBitLo)) & 0xFF;
+        aFull[i] = (aFull[i] & uKeepMask) | (aRand[i] & ~uKeepMask);
+    }
+    char aBuf[INET6_ADDRSTRLEN];
+    if (!inet_ntop(AF_INET6, aFull, aBuf, sizeof(aBuf))) return "";
+    return CString(aBuf);
 }
 
 }  // namespace KeepNickUtils

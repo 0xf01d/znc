@@ -90,6 +90,25 @@ TEST(KeepNickTest, KLineBackoffSeconds) {
     EXPECT_EQ(3600u, KeepNickUtils::KLineBackoffSeconds(0));
 }
 
+TEST(KeepNickTest, RandomV6FromPool) {
+    // /48: prefix kept, subnet+IID random, in-pool
+    CString s1 = KeepNickUtils::RandomV6FromPool("2001:db8:aa00::/48");
+    CString s2 = KeepNickUtils::RandomV6FromPool("2001:db8:aa00::/48");
+    ASSERT_FALSE(s1.empty());
+    EXPECT_TRUE(s1.StartsWith("2001:db8:aa"));
+    EXPECT_NE(s1, s2);
+    // valid parse
+    in6_addr a;
+    EXPECT_EQ(1, inet_pton(AF_INET6, s1.c_str(), &a));
+    // /64 pool: only IID random
+    CString s3 = KeepNickUtils::RandomV6FromPool("2001:db8:aa00::/64");
+    ASSERT_FALSE(s3.empty());
+    EXPECT_TRUE(s3.StartsWith("2001:db8:aa00:"));
+    // invalid: too long prefix, bad addr
+    EXPECT_TRUE(KeepNickUtils::RandomV6FromPool("2001:db8::/65").empty());
+    EXPECT_TRUE(KeepNickUtils::RandomV6FromPool("nonsense/48").empty());
+    EXPECT_TRUE(KeepNickUtils::RandomV6FromPool("").empty());
+}
 TEST(KeepNickTest, NextCandidateNoRotation) {
     std::vector<CString> vsNicks = {"foo", "bar", "baz"};
     EXPECT_EQ("foo", KeepNickUtils::NextCandidate(vsNicks, 0, false, 30));

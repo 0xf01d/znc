@@ -130,6 +130,10 @@ class CKeepNickMod : public CModule {
                    t_d("Bind clones to unassigned vhost addresses (Linux "
                        "IP_FREEBIND)"),
                    [this](const CString& sLine) { CmdFreeBind(sLine); });
+        AddCommand("V6Pool", t_d("[prefix/len | off]"),
+                   t_d("Give each clone a random IPv6 from this pool "
+                       "(requires FreeBind)"),
+                   [this](const CString& sLine) { CmdV6Pool(sLine); });
     }
     ~CKeepNickMod() override {}
 
@@ -216,6 +220,7 @@ class CKeepNickMod : public CModule {
     void CmdInterval(const CString& sLine);
     void CmdRotation(const CString& sLine);
     void CmdFreeBind(const CString& sLine);
+    void CmdV6Pool(const CString& sLine);
 
     // ---- state ----
 
@@ -224,6 +229,8 @@ class CKeepNickMod : public CModule {
     unsigned int m_uInterval = 30;
     bool m_bRotation = false;
     bool m_bFreeBind = true;
+    CString m_sV6Pool;  // e.g. "2001:db8:aa00::/48": each clone binds to a
+                        // random /64-derived address inside this prefix
 
     friend class CKeepNickSock;
     friend class CKeepNickTimer;
@@ -679,6 +686,7 @@ bool CKeepNickMod::OnLoad(const CString& sArgs, CString& sMessage) {
     if (m_uInterval < 30 || m_uInterval > 3600) m_uInterval = 30;
     m_bRotation = GetNV("rotation").ToBool();
     m_bFreeBind = GetNV("freebind").empty() || GetNV("freebind").ToBool();
+    m_sV6Pool = GetNV("v6pool");
 
     LoadNets();
     AddTimer(new CKeepNickTimer(this));
@@ -954,7 +962,18 @@ void CKeepNickMod::OnDNSDone(CKeepNickDNSJob* pJob) {
                                    sp.sServerName, sp.uPort, sp.bSSL,
                                    sp.sPass);
     pSock->SetTargetIP(pJob->GetTargetIP());
-    pSock->SetBindIP(pJob->GetBindIP());
+    CString sBindIP = pJob->GetBindIP();
+    if (!m_sV6Pool.empty()) {
+        // Each clone gets its own random address from the configured pool
+        // (prefix + random bits). Needs FreeBind because the address is
+        // (almost certainly) not assigned on this host.
+        CString sRand = KeepNickUtils::RandomV6FromPool(m_sV6Pool);
+        if (!sRand.empty() &&
+            pJob->GetTargetIP().Find(":") != CString::npos) {
+            sBindIP = sRand;
+        }
+    }
+    pSock->SetBindIP(sBindIP);
     if (!pSock->Dial(m_bFreeBind)) {
         delete pSock;  // never entered the manager
         AttemptFailed(t, pNetwork, false,
@@ -1340,6 +1359,30 @@ void CKeepNickMod::CmdFreeBind(const CString& sLine) {
     SetNV("freebind", m_bFreeBind ? "on" : "off");
     PutModule("FreeBind is now " + CString(m_bFreeBind ? "on" : "off") +
               " (applies to new clones)");
+}
+
+void CKeepNickMod::CmdV6Pool(const CString& sLine) {
+    CString sArg = sLine.Token(1);
+    if (sArg.empty()) {
+        PutModule("V6Pool is " +
+                  (m_sV6Pool.empty() ? CString("off") : m_sV6Pool));
+        return;
+    }
+    if (sArg.Equals("off")) {
+        m_sV6Pool = "";
+        SetNV("v6pool", "");
+        PutModule("V6Pool is now off");
+        return;
+    }
+    if (KeepNickUtils::RandomV6FromPool(sArg).empty()) {
+        PutModule("Invalid pool (want <prefix>/<len>, len 1..64, e.g. "
+                  "2001:db8:aa00::/48)");
+        return;
+    }
+    m_sV6Pool = sArg;
+    SetNV("v6pool", sArg);
+    PutModule("V6Pool is now " + sArg +
+              ": new clones bind to a random address from this pool");
 }
 
 GLOBALMODULEDEFS(CKeepNickMod,
