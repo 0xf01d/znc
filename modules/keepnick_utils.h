@@ -93,7 +93,8 @@ inline unsigned int BackoffSeconds(unsigned int uInterval,
 // The server replied with an error that suggests we are not welcome (e.g.
 // 465 ERR_YOUREBANNEDCREEP). Back off much harder so we don't hammer it.
 inline unsigned int KLineBackoffSeconds(unsigned int uInterval) {
-    unsigned int uDelay = (uInterval ? uInterval : 30) * 8;
+    if (uInterval == 0) return 3600;  // unconfigured interval: maximum caution
+    unsigned int uDelay = uInterval * 8;
     if (uDelay < 600) uDelay = 600;
     if (uDelay > 3600) uDelay = 3600;
     return uDelay;

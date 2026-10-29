@@ -46,7 +46,7 @@
 //
 // See docs/keepnick.md for details.
 
-#include <znc/Debug.h>
+#include <znc/ZNCDebug.h>
 #include <znc/IRCNetwork.h>
 #include <znc/IRCSock.h>
 #include <znc/Message.h>
@@ -1107,7 +1107,7 @@ void CKeepNickMod::OnNickMessage(CNickMessage& Message,
     }
 }
 
-EModRet CKeepNickMod::OnNumericMessage(CNumericMessage& Message) {
+CModule::EModRet CKeepNickMod::OnNumericMessage(CNumericMessage& Message) {
     CIRCNetwork* pNetwork = GetNetwork();
     if (pNetwork && Message.GetCode() == 433) {
         CIRCSock* pSock = pNetwork->GetIRCSock();
@@ -1124,7 +1124,7 @@ EModRet CKeepNickMod::OnNumericMessage(CNumericMessage& Message) {
     return CONTINUE;
 }
 
-EModRet CKeepNickMod::OnDeleteUser(CUser& User) {
+CModule::EModRet CKeepNickMod::OnDeleteUser(CUser& User) {
     std::vector<CString> vsKeys;
     for (const auto& it : m_msNets) {
         if (KeepNickUtils::ParseNetKey(it.first).first.Equals(
@@ -1136,7 +1136,7 @@ EModRet CKeepNickMod::OnDeleteUser(CUser& User) {
     return CONTINUE;
 }
 
-EModRet CKeepNickMod::OnDeleteNetwork(CIRCNetwork& Network) {
+CModule::EModRet CKeepNickMod::OnDeleteNetwork(CIRCNetwork& Network) {
     ForgetNet(KeyOf(&Network));
     return CONTINUE;
 }
